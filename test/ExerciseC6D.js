@@ -11,14 +11,23 @@ contract('ExerciseC6D', async (accounts) => {
 
     // Watch contract events
     const ON_TIME = 10;
-    let events = config.exerciseC6D.allEvents();
-    events.watch((error, result) => {
-      if (result.event === 'OracleRequest') {
-        console.log(`\n\nOracle Requested: index: ${result.args.index.toNumber()}, flight:  ${result.args.flight}, timestamp: ${result.args.timestamp.toNumber()}`);
+    config.exerciseC6D.OracleRequest((error,result) => {
+      if (error) {
+        console.log("OracleRequest error: " + error);
       } else {
-        console.log(`\n\nFlight Status Available: flight: ${result.args.flight}, timestamp: ${result.args.timestamp.toNumber()}, status: ${result.args.status.toNumber() == ON_TIME ? 'ON TIME' : 'DELAYED'}, verified: ${result.args.verified ? 'VERIFIED' : 'UNVERIFIED'}`);
+        console.log(`\n\nOracle Requested: index: ${result.args.index.toNumber()}, flight:  ${result.args.flight}, timestamp: ${result.args.timestamp.toNumber()}`);
       }
+      
+
     });
+    // let events = config.exerciseC6D.allEvents();
+    // events.watch((error, result) => {
+    //   if (result.event === 'OracleRequest') {
+    //     console.log(`\n\nOracle Requested: index: ${result.args.index.toNumber()}, flight:  ${result.args.flight}, timestamp: ${result.args.timestamp.toNumber()}`);
+    //   } else {
+    //     console.log(`\n\nFlight Status Available: flight: ${result.args.flight}, timestamp: ${result.args.timestamp.toNumber()}, status: ${result.args.status.toNumber() == ON_TIME ? 'ON TIME' : 'DELAYED'}, verified: ${result.args.verified ? 'VERIFIED' : 'UNVERIFIED'}`);
+    //   }
+    // });
 
     // Past events
     //events.get((error, logs) => {  });
@@ -34,7 +43,10 @@ contract('ExerciseC6D', async (accounts) => {
     // ACT
     for(let a=1; a<TEST_ORACLES_COUNT; a++) {      
       await config.exerciseC6D.registerOracle({ from: accounts[a], value: fee });
+      let result = await config.exerciseC6D.getOracle(accounts[a]);
+      console.log(result[0].toNumber(),result[1].toNumber(),result[2].toNumber());
     }
+
   });
 
   it('can request flight status', async () => {
@@ -44,7 +56,8 @@ contract('ExerciseC6D', async (accounts) => {
     let timestamp = Math.floor(Date.now() / 1000);
 
     // Submit a request for oracles to get status information for a flight
-    await config.exerciseC6D.fetchFlightStatus(flight, timestamp);
+    let tx = await config.exerciseC6D.fetchFlightStatus(flight, timestamp);
+    console.log("event: " + tx.logs[0].event);
 
     // ACT
 
@@ -63,13 +76,13 @@ contract('ExerciseC6D', async (accounts) => {
 
         try {
           // Submit a response...it will only be accepted if there is an Index match
-          await config.exerciseC6D.submitOracleResponse(oracleIndexes[idx], flight, timestamp, 10, { from: accounts[a] });
+          let tx = await config.exerciseC6D.submitOracleResponse(oracleIndexes[idx], flight, timestamp, 10, { from: accounts[a] });
 
           // Check to see if flight status is available
           // Only useful while debugging since flight status is not hydrated until a 
           // required threshold of oracles submit a response
-          //let flightStatus = await config.exerciseC6D.viewFlightStatus(flight, timestamp);
-          //console.log('\nPost', idx, oracleIndexes[idx].toNumber(), flight, timestamp, flightStatus);
+          let flightStatus = await config.exerciseC6D.viewFlightStatus(flight, timestamp);
+          console.log('\nPost', idx, oracleIndexes[idx].toNumber(), flight, timestamp, flightStatus.toNumber());
         }
         catch(e) {
           // Enable this when debugging
